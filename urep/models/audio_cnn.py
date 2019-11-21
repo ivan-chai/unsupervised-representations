@@ -3,9 +3,10 @@ from collections import OrderedDict
 import torch
 
 from ..config import prepare_config
+from .base import ModelBase
 
 
-class AudioCNN(torch.nn.Module):
+class AudioCNN(ModelBase):
     """Simple network with 1-D convolutions, similar to that from
     Contrastive Predictive Coding (CPC)."""
     @staticmethod
@@ -36,4 +37,11 @@ class AudioCNN(torch.nn.Module):
         self.body = torch.nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.body(x)
+        x = x.unsqueeze(1)
+        out = self.body(x)
+        out = out.permute(0, 2, 1)
+        return out
+
+    @property
+    def output_dims(self):
+        return self._config["num_channels"][-1]
