@@ -26,8 +26,12 @@ class InfoNCELoss(NamedLoss):
     def __init__(self, embeddings_size, contexts_size, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self._comparator = BilinearComparator(embeddings_size, contexts_size,
-                                              config=self._config["comparator_params"])
+        self._comparators = []
+        for step in range(self._config["future_steps"]):
+            comparator = BilinearComparator(embeddings_size, contexts_size,
+                                            config=self._config["comparator_params"])
+            self.add_module("comparator{}".format(step), comparator)
+            self._comparators.append(comparator)
 
     def forward(self, embeddings, contexts):
         if len(embeddings.shape) != 3:
@@ -49,10 +53,13 @@ class InfoNCELoss(NamedLoss):
             embeddings_subset = embeddings[:, min_context_size + step:duration]
             contexts_subset = contexts[:, min_context_size - 1:duration - step - 1]
             subset_duration = duration - step - min_context_size
-            log_density_ratios_matrix = self._comparator(embeddings_subset, contexts_subset)
-            log_density_ratios_positive = log_density_ratios_matrix.reshape(batch_size * subset_duration, batch_size * subset_duration).diag().view(batch_size, subset_duration)
-            log_density_ratios_matrix_half_flat = log_density_ratios_matrix.view(batch_size, subset_duration, batch_size * subset_duration)  # (batch, time, batch x time).
-            log_density_ratio_sums = torch.logsumexp(log_density_ratios_matrix_half_flat, dim=-1)  # (batch, time).
+            log_density_ratios_matrix = self._comparators[step](embeddings_subset, contexts_subset)  # (batch, time, batch, time).
+            # Numerator consists from ratios for matching (batch, time) pairs.
+            log_density_ratios_positive = log_density_ratios_matrix.view(batch_size * subset_duration, batch_size * subset_duration).diag().view(batch_size, subset_duration)
+            # Negatives are obtained from different batch elements for the same time step.
+            # Denumerator is just a sum of ratios for diferent samples from the batch.
+            log_density_ratios_alt = torch.diagonal(log_density_ratios_matrix, dim1=1, dim2=3)  # (batch, batch, time).
+            log_density_ratio_sums = torch.logsumexp(log_density_ratios_alt, dim=1)  # (batch, time).
             # We implement mean instead of sum for better loss values. It is not part of original approach.
             log_density_ratio_sums = log_density_ratio_sums - np.log(batch_size * subset_duration)
             log_probabilities = log_density_ratios_positive - log_density_ratio_sums  # (batch, time).

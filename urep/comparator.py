@@ -19,7 +19,7 @@ class BilinearComparator(torch.nn.Module):
                     x.shape[1], y.shape[1]))
         input_x_shape = x.shape
         input_y_shape = y.shape
-        x = self.transform(x).view(-1, input_y_shape[-1])
+        x = self.transform(x).reshape(-1, input_y_shape[-1])
         y = y.reshape(-1, input_y_shape[-1])
         out = torch.matmul(x, y.t())  # (batch, batch) or (batch x time, batch x time).
         if has_time:

@@ -1,4 +1,5 @@
 """Training tools."""
+import itertools
 import logging
 from collections import OrderedDict
 
@@ -18,7 +19,7 @@ class Trainer(object):
     def get_default_config():
         return OrderedDict([
             ("num_steps", 5000),
-            ("batch_size", 32),
+            ("batch_size", 128),
             ("num_workers", 8),
             ("logging_steps", 100),
             ("checkpoint_steps", 500),
@@ -28,7 +29,6 @@ class Trainer(object):
 
     def __init__(self, config=None):
         self._config = prepare_config(config, self.get_default_config())
-        self._optimizer = OPTIMIZERS[self._config["optimizer"]](self._config["optimizer_params"])
 
     @property
     def config(self):
@@ -48,17 +48,14 @@ class Trainer(object):
         else:
             logging.info("Load state from step {}".format(initial_step))
             estimator.load_state_dict(read_checkpoint(model_dir, initial_step))
-        optimizer = self._optimizer(estimator)
+        optimizer = OPTIMIZERS[self._config["optimizer"]](estimator, self._config["optimizer_params"])
         steps = range(initial_step, self._config["num_steps"])
-        for step, batch in zip(steps, data_loader):
+        for step, batch in zip(steps, itertools.cycle(data_loader)):
             batch = to_tuple(batch)
             if torch.cuda.is_available():
                 batch = [try_cuda(tensor) for tensor in batch]
-            for tensor in batch:
-                if tensor.dtype.is_floating_point:
-                    tensor.requires_grad = True
-            optimizer.zero_grad()
             loss_value = estimator(*batch, compute_loss=True)["loss"]
+            optimizer.zero_grad()
             loss_value.backward()
             optimizer.step()
 

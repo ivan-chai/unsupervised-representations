@@ -58,10 +58,10 @@ class CPCEstimator(torch.nn.Module):
 
     def forward(self, waveforms, labels, compute_loss=False):
         embeddings, contexts = self.model(waveforms)
-        loss_value = self.loss(embeddings, contexts)
         result = {"embeddings": embeddings,
                   "contexts": contexts}
         if compute_loss:
+            loss_value = self.loss(embeddings, contexts)
             result["loss"] = loss_value
         return result
 
