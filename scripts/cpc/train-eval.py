@@ -3,10 +3,10 @@
 import argparse
 import logging
 
+from urep.cpc import CPCEstimator as Estimator
 from urep.data import LibrispeechDataset as Dataset
 from urep.evaluate import Evaluator
 from urep.io import read_json
-from urep.model import CPCModel as Model
 from urep.train import Trainer
 
 
@@ -29,7 +29,7 @@ def parse_arguments():
 def main(args):
     if len(args.train_dataset) == 0 and len(args.eval_dataset) == 0:
         raise RuntimeError("At least one of training and evaluation datasets should be specified")
-    model = Model(args.model_config)
+    model = Estimator(args.model_config)
 
     eval_config = read_json(args.eval_config) if args.eval_config else {}
     if args.num_eval_steps is not None:

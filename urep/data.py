@@ -37,10 +37,6 @@ class LibrispeechDataset(NamedDataset):
         return waveform, audio_file.speaker
 
     @property
-    def data_names(self):
-        return ("waveform", "label")
-
-    @property
     def speakers(self):
         return self._speakers
 

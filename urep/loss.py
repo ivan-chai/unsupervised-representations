@@ -23,10 +23,10 @@ class InfoNCELoss(NamedLoss):
             ("comparator_params", None)
         ])
 
-    def __init__(self, embeddings_dim, contexts_dim, config=None):
+    def __init__(self, embeddings_size, contexts_size, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self._comparator = BilinearComparator(embeddings_dim, contexts_dim,
+        self._comparator = BilinearComparator(embeddings_size, contexts_size,
                                               config=self._config["comparator_params"])
 
     def forward(self, embeddings, contexts):
