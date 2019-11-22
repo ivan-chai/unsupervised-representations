@@ -42,14 +42,21 @@ class Trainer(object):
         estimator = try_cuda(estimator)
         revert_eval = not estimator.training
         estimator.train()
+        optimizer = OPTIMIZERS[self._config["optimizer"]](estimator, self._config["optimizer_params"])
         initial_step = get_latest_checkpoint_step(model_dir)
         if initial_step is None:
             initial_step = 0
         else:
             logging.info("Load state from step {}".format(initial_step))
-            estimator.load_state_dict(read_checkpoint(model_dir, initial_step))
-        optimizer = OPTIMIZERS[self._config["optimizer"]](estimator, self._config["optimizer_params"])
-        steps = range(initial_step, self._config["num_steps"])
+            state_dict = read_checkpoint(model_dir, initial_step)
+            if "optimizer" in state_dict:
+                logging.info("Load optimizer state")
+                optimizer.load_state_dict(state_dict.pop("optimizer"))
+            else:
+                logging.info("Optimizer state was not found in checkpoint")
+            logging.info("Load model state")
+            estimator.load_state_dict(state_dict)
+        steps = range(initial_step + 1, self._config["num_steps"])
         for step, batch in zip(steps, itertools.cycle(data_loader)):
             batch = to_tuple(batch)
             batch = [try_cuda(tensor) for tensor in batch]
@@ -58,12 +65,15 @@ class Trainer(object):
             loss_value.backward()
             optimizer.step()
 
-            if step % self._config["logging_steps"] == 0:
+            relative_step = step - initial_step - 1
+            if relative_step % self._config["logging_steps"] == 0:
                 logging.info("Step {}, train loss {}".format(step, loss_value.item()))
 
-            if (step % self._config["checkpoint_steps"] == 0) or (step == steps[-1]):
+            if (relative_step % self._config["checkpoint_steps"] == 0) or (step == steps[-1]):
                 logging.info("Dump checkpoint for step {}".format(step))
-                write_checkpoint(estimator.state_dict(), model_dir, step)
+                state_dict = estimator.state_dict()
+                state_dict["optimizer"] = optimizer.state_dict()
+                write_checkpoint(state_dict, model_dir, step)
                 eval_hook()
         if revert_eval:
             estimator.eval()
