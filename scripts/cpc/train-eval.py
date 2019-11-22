@@ -54,11 +54,9 @@ def main(args):
     else:
         evaluate_fn = None
     if len(train_dataset) > 0:
-        logging.info("Start training")
         trainer.train(model, train_dataset, args.model_dir,
                       eval_hook=evaluate_fn)
     elif evaluate_fn is not None:
-        logging.info("Start evaluation")
         evaluate_fn()
 
 

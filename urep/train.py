@@ -8,8 +8,6 @@ import torch
 from .checkpoint import get_latest_checkpoint_step, read_checkpoint, write_checkpoint
 from .config import prepare_config
 from .data import make_dataloader
-from .io import ensure_directory
-from .loss import LOSSES
 from .optim import OPTIMIZERS
 from .utils import to_tuple, try_cuda
 
@@ -36,11 +34,13 @@ class Trainer(object):
 
     def train(self, estimator, dataset, model_dir, eval_hook=None, collate_fn=None):
         """Train model."""
+        logging.info("Start training")
         eval_hook = eval_hook if eval_hook is not None else lambda: None
         data_loader = make_dataloader(dataset, self._config["batch_size"],
                                       shuffle=True,
                                       num_workers=self._config["num_workers"])
         estimator = try_cuda(estimator)
+        revert_eval = not estimator.training
         estimator.train()
         initial_step = get_latest_checkpoint_step(model_dir)
         if initial_step is None:
@@ -52,8 +52,7 @@ class Trainer(object):
         steps = range(initial_step, self._config["num_steps"])
         for step, batch in zip(steps, itertools.cycle(data_loader)):
             batch = to_tuple(batch)
-            if torch.cuda.is_available():
-                batch = [try_cuda(tensor) for tensor in batch]
+            batch = [try_cuda(tensor) for tensor in batch]
             loss_value = estimator(*batch, compute_loss=True)["loss"]
             optimizer.zero_grad()
             loss_value.backward()
@@ -66,3 +65,5 @@ class Trainer(object):
                 logging.info("Dump checkpoint for step {}".format(step))
                 write_checkpoint(estimator.state_dict(), model_dir, step)
                 eval_hook()
+        if revert_eval:
+            estimator.eval()
