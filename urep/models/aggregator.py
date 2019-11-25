@@ -1,8 +1,10 @@
 """RNN for context aggregation."""
 from collections import OrderedDict
+import logging
 import torch
 
 from ..config import prepare_config
+from ..parallel import SuppressOutput
 from .base import ModelBase
 
 
@@ -20,11 +22,13 @@ class GRUAggregator(ModelBase):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
         self.rnn = torch.nn.GRU(in_channels, self._config["num_channels"], batch_first=True)
+        logging.warning("Supress RNN Dataparallel warnings in forward")
 
     def forward(self, x):
         if len(x.shape) != 3:
             raise ValueError("Expected tensor of shape (batch, time, dim)")
-        out, _ = self.rnn(x)
+        with SuppressOutput(suppress_stderr=True):
+            out, _ = self.rnn(x)
         return out
 
     @property
