@@ -3,9 +3,9 @@ from collections import OrderedDict
 
 import torch
 
-from .config import prepare_config
-from .loss import LOSSES
-from .models import AGGREGATORS, MODELS
+from ..config import prepare_config
+from ..loss import LOSSES
+from ..models import AGGREGATORS, MODELS
 
 
 class CPCModel(torch.nn.Module):

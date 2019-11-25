@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from urep.cpc import CPCEstimator as Estimator
+from urep.estimators import CPCEstimator as Estimator
 from urep.data import LibrispeechDataset as Dataset
 from urep.evaluate import Evaluator
 from urep.io import read_json
