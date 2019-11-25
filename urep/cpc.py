@@ -56,7 +56,7 @@ class CPCEstimator(torch.nn.Module):
         self.loss = LOSSES["info_nce"](self.model.embedding_size, self.model.context_size,
                                        config=self._config["loss_params"])
 
-    def forward(self, waveforms, labels, compute_loss=False):
+    def forward(self, waveforms, labels=None, compute_loss=False):
         embeddings, contexts = self.model(waveforms)
         result = {"embeddings": embeddings,
                   "contexts": contexts}

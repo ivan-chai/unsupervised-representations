@@ -16,7 +16,7 @@ class AudioCNN(ModelBase):
             ("kernel_sizes", [10, 8, 4, 4, 4]),
             ("strides", [5, 4, 2, 2, 2])
         ])
-        
+
     def __init__(self, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
@@ -33,10 +33,15 @@ class AudioCNN(ModelBase):
             stride = self._config["strides"][i]
             kernel_size = self._config["kernel_sizes"][i]
             layers.append(torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride))
+            layers.append(torch.nn.ReLU())
             in_channels = out_channels
         self.body = torch.nn.Sequential(*layers)
 
     def forward(self, x):
+        """Apply model to input tensor x with shape (batch, time)."""
+        if len(x.shape) != 2:
+            raise ValueError("Expected tensor of shape (batch, time)")
+        x = (x - x.mean(-1, keepdim=True)) / x.std(-1, keepdim=True)
         x = x.unsqueeze(1)
         out = self.body(x)
         out = out.permute(0, 2, 1)

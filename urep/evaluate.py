@@ -43,13 +43,15 @@ class Evaluator(object):
             for batch in logging.progress(data_loader):
                 batch = to_tuple(batch)
                 batch = [try_cuda(tensor) for tensor in batch]
-                loss_value = estimator(*batch, compute_loss=True)["loss"]
+                loss_value = estimator(*batch, compute_loss=True)["loss"].mean()
                 loss_meter.add(loss_value.item())
+        final_loss_value = loss_meter.value()[0]
         output_string = "Evaluation finished"
-        output_string += ", loss {:.5f}".format(loss_meter.value()[0])
+        output_string += ", loss {:.5f}".format(final_loss_value)
         logging.info(output_string)
         if revert_training:
             estimator.train()
+        return final_loss_value
 
     def evaluation_hook(self, estimator, model_dir, dataset):
         """Load and evaluate model."""
@@ -58,4 +60,4 @@ class Evaluator(object):
             raise RuntimeError("No checkpoints were detected in {}".format(model_dir))
         logging.info("Load state from step {}".format(step))
         estimator.load_state_dict(read_checkpoint(model_dir, step))
-        self.evaluate(estimator, dataset)
+        return self.evaluate(estimator, dataset)

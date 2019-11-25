@@ -19,14 +19,12 @@ class GRUAggregator(ModelBase):
     def __init__(self, in_channels, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self.rnn = torch.nn.GRU(in_channels, self._config["num_channels"])
+        self.rnn = torch.nn.GRU(in_channels, self._config["num_channels"], batch_first=True)
 
     def forward(self, x):
         if len(x.shape) != 3:
             raise ValueError("Expected tensor of shape (batch, time, dim)")
-        x = x.permute(1, 0, 2)
         out, _ = self.rnn(x)
-        out = out.permute(1, 0, 2)
         return out
 
     @property
