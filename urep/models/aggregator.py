@@ -4,7 +4,7 @@ import logging
 import torch
 
 from ..config import prepare_config
-from ..parallel import SuppressOutput
+from ..utils import SuppressOutput
 from .base import ModelBase
 
 
