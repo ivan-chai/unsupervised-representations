@@ -21,6 +21,7 @@ class InfoNCELoss(NamedLoss):
             ("min_context_size", 64),
             ("future_steps", 12),
             ("single_comparator", False),
+            ("transpose", False),
             ("symmetric", False),
             ("comparator", "bilinear"),
             ("comparator_params", None)
@@ -36,9 +37,10 @@ class InfoNCELoss(NamedLoss):
             self.add_module("comparator{}".format(step), comparator)
 
     def forward(self, embeddings, contexts):
-        loss = self._info_nce(embeddings, contexts)
+        transpose = self._config["transpose"]
+        loss = self._info_nce(embeddings, contexts, transpose=transpose)
         if self._config["symmetric"]:
-            loss = 0.5 * (loss + self._info_nce(contexts, embeddings, transpose=True))
+            loss = 0.5 * (loss + self._info_nce(embeddings, contexts, transpose=not transpose))
         return loss
 
     def _info_nce(self, embeddings, contexts, transpose=False):
@@ -62,10 +64,9 @@ class InfoNCELoss(NamedLoss):
             contexts_subset = contexts[:, min_context_size - 1:duration - step - 1]
             subset_duration = duration - step - min_context_size
             comparator = self._modules["comparator{}".format(step if not self._config["single_comparator"] else 0)]
-            if not transpose:
-                log_density_ratios_matrix = comparator(embeddings_subset, contexts_subset)  # (batch, time, batch, time).
-            else:
-                log_density_ratios_matrix = comparator(contexts_subset, embeddings_subset).permute(2, 3, 0, 1)  # (batch, time, batch, time).
+            log_density_ratios_matrix = comparator(embeddings_subset, contexts_subset)  # (batch, time, batch, time).
+            if transpose:
+                log_density_ratios_matrix = log_density_ratios_matrix.permute(2, 3, 0, 1)
             # Numerator consists from ratios for matching (batch, time) pairs.
             log_density_ratios_positive = log_density_ratios_matrix.view(batch_size * subset_duration, batch_size * subset_duration).diag().view(batch_size, subset_duration)
             # Negatives are obtained from different batch elements for the same time step.

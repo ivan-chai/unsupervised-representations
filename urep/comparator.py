@@ -1,11 +1,17 @@
 """Layers for embedding comparison."""
+from collections import OrderedDict
+
 import numpy as np
 import torch
+
+from .config import prepare_config
 
 
 class BilinearComparator(torch.nn.Module):
     def __init__(self, x_dim, y_dim, config=None):
         super().__init__()
+        if config:
+            raise ValueError("Config should be empty")
         self.transform = torch.nn.Linear(x_dim, y_dim, bias=False)
 
     def forward(self, x, y):
@@ -29,10 +35,19 @@ class BilinearComparator(torch.nn.Module):
         return out
 
 
-class Gaussian(torch.nn.Module):
+class GaussianComparator(torch.nn.Module):
+    @staticmethod
+    def get_default_config():
+        return OrderedDict([
+            ("init_centroid_sigma2", 0.5)
+        ])
+
     def __init__(self, x_dim, y_dim, config=None):
         super().__init__()
-        self.alpha = torch.nn.Parameter(torch.from_numpy(np.zeros([])))
+        self._config = prepare_config(config, self.get_default_config())
+        init_sigma2 = self._config["init_centroid_sigma2"]
+        init_alpha = np.log(init_sigma2 / (1 - init_sigma2))
+        self.alpha = torch.nn.Parameter(torch.from_numpy(np.array(init_alpha, dtype=np.float32)))
 
     def forward(self, x, y):
         """Embeddings should be (batch, time, dim) or (batch, dim)."""
@@ -41,8 +56,8 @@ class Gaussian(torch.nn.Module):
                 x.shape, y.shape))
         input_shape = x.shape
         has_time = (len(input_shape) == 3)
+        dim = input_shape[-1]
         if has_time:
-            dim = input_shape[-1]
             x = x.reshape(-1, dim)
             y = y.reshape(-1, dim)
         sigma2 = torch.sigmoid(self.alpha)
@@ -61,5 +76,5 @@ class Gaussian(torch.nn.Module):
 
 COMPARATORS = {
     "bilinear": BilinearComparator,
-    "gauss": Gaussian
+    "gauss": GaussianComparator
 }
