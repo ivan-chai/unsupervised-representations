@@ -1,6 +1,7 @@
 """Model and tools for Gaussian Contrastive Predictive Coding."""
 from collections import OrderedDict
 
+import numpy as np
 import torch
 
 from ..config import prepare_config
@@ -13,19 +14,13 @@ class GCPCModel(torch.nn.Module):
     def get_default_config():
         return OrderedDict([
             ("model", "audio_cnn"),
-            ("model_params", None),
-            ("aggregator", "gru"),
-            ("aggregator_params", None)
+            ("model_params", None)
         ])
 
     def __init__(self, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
         self.encoder = MODELS[self._config["model"]](self._config["model_params"])
-        aggregator_config = prepare_config(self._config["aggregator_params"], {"num_channels": self.encoder.output_dims})
-        self.aggregator = AGGREGATORS[self._config["aggregator"]](self.encoder.output_dims, aggregator_config)
-        if self.encoder.output_dims != self.aggregator.output_dims:
-            raise ValueError("In G-CPC model aggregator and encoder should produce vectors of equal size")
 
     @property
     def embedding_size(self):
@@ -35,8 +30,7 @@ class GCPCModel(torch.nn.Module):
         if len(waveform.shape) != 2:
             raise ValueError("Expected tensor of shape (batch, time)")
         embeddings = self.encoder(waveform)
-        contexts = self.aggregator(embeddings)
-        return embeddings, contexts
+        return embeddings
 
 
 class GCPCEstimator(torch.nn.Module):
@@ -65,11 +59,10 @@ class GCPCEstimator(torch.nn.Module):
                                        config=loss_config)
 
     def forward(self, waveforms, labels=None, compute_loss=False):
-        embeddings, contexts = self.model(waveforms)
-        result = {"embeddings": embeddings,
-                  "contexts": contexts}
+        embeddings = self.model(waveforms)
+        result = {"embeddings": embeddings}
         if compute_loss:
-            loss_value = self.loss(embeddings, contexts)
+            loss_value = self.loss(embeddings, embeddings)
             result["loss"] = loss_value
         return result
 
@@ -80,3 +73,7 @@ class GCPCEstimator(torch.nn.Module):
     def load_state_dict(self, state_dict):
         self.model.load_state_dict(state_dict["state_dict"])
         self.loss.load_state_dict(state_dict["loss_state"])
+
+
+def get_maximal_mutual_information(dim, centroid_sigma2):
+    return - (dim / 2) * np.log(1 - centroid_sigma2 ** 2)

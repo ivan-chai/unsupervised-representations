@@ -4,6 +4,7 @@ import numpy as np
 import torch
 
 from urep import test
+from urep.estimators.gcpc import get_maximal_mutual_information
 from urep.loss import *
 
 
@@ -18,7 +19,7 @@ class TestInfoNCELoss(test.TestCase):
             centroid = np.random.normal(scale=np.sqrt(sigma2), size=dim)
             batch_x[i, 1] = np.random.normal(loc=centroid, scale=np.sqrt(1 - sigma2), size=dim)
             batch_y[i, 0] = np.random.normal(loc=centroid, scale=np.sqrt(1 - sigma2), size=dim)
-        mutual_information_gt = - (dim / 2) * np.log(1 - sigma2 ** 2)
+        mutual_information_gt = get_maximal_mutual_information(dim, sigma2)
 
         config = {
             "min_context_size": 1,

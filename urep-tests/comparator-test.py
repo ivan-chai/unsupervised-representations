@@ -5,6 +5,7 @@ import torch
 
 from urep import test
 from urep.comparator import *
+from urep.estimators.gcpc import get_maximal_mutual_information
 
 
 class TestGaussianComparator(test.TestCase):
@@ -25,7 +26,7 @@ class TestGaussianComparator(test.TestCase):
             cmp_mat = comparator.forward(torch.from_numpy(batch_x), torch.from_numpy(batch_y)).numpy()
         self.assertEqualArrays(cmp_mat.shape, [batch_size, batch_size])
         mutual_information = np.mean(np.diag(cmp_mat))
-        mutual_information_gt = - (dim / 2) * np.log(1 - sigma2 ** 2)
+        mutual_information_gt = get_maximal_mutual_information(dim, sigma2)
         self.assertAlmostEqual(mutual_information, mutual_information_gt, places=1)
 
 
