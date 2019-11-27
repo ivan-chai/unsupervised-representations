@@ -33,7 +33,8 @@ class AudioCNN(ModelBase):
             stride = self._config["strides"][i]
             kernel_size = self._config["kernel_sizes"][i]
             layers.append(torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride))
-            layers.append(torch.nn.ReLU())
+            if i < num_layers - 1:
+                layers.append(torch.nn.ReLU())
             in_channels = out_channels
         self.body = torch.nn.Sequential(*layers)
 
