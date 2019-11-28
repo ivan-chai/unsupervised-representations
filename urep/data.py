@@ -83,6 +83,7 @@ class MultivariateNormalDataset(torch.utils.data.Dataset):
             ("dim", 64),
             ("num_classes", 100),
             ("num_samples", 10000),
+            ("centroid_sigma2", 0.5),
             ("sequence_length", None),  # If None, output batches will not have time dimension.
             ("seed", 0)
         ])
@@ -90,9 +91,17 @@ class MultivariateNormalDataset(torch.utils.data.Dataset):
     def __init__(self, config=None):
         self._config = prepare_config(config, self.get_default_config())
         np.random.seed(self._config["seed"])
-        self._centroid_mean = np.random.random(self._config["dim"]) * 10 - 5
-        self._centroid_cov = make_spd_matrix(self._config["dim"])
-        self._class_cov = np.eye(self._config["dim"])
+        dim = self._config["dim"]
+        self._centroid_mean = np.random.random(dim) * 10 - 5
+        cov = make_spd_matrix(self._config["dim"])
+        # Make diagonal equal to identity.
+        for i in range(dim):
+            scale = np.sqrt(cov[i, i])
+            cov[i, :] /= scale
+            cov[:, i] /= scale
+        centroid_sigma2 = self._config["centroid_sigma2"]
+        self._centroid_cov = cov * centroid_sigma2
+        self._class_cov = cov * (1 - centroid_sigma2)
         self._class_mean = []
         for _ in range(self._config["num_classes"]):
             self._class_mean.append(np.random.multivariate_normal(self._centroid_mean, self._centroid_cov))
