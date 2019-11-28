@@ -39,7 +39,8 @@ class GaussianComparator(torch.nn.Module):
     @staticmethod
     def get_default_config():
         return OrderedDict([
-            ("init_centroid_sigma2", 0.5)
+            ("init_centroid_sigma2", 0.5),
+            ("trainable", True)
         ])
 
     def __init__(self, x_dim, y_dim, config=None):
@@ -47,7 +48,8 @@ class GaussianComparator(torch.nn.Module):
         self._config = prepare_config(config, self.get_default_config())
         init_sigma2 = self._config["init_centroid_sigma2"]
         init_alpha = np.log(init_sigma2 / (1 - init_sigma2))
-        self.alpha = torch.nn.Parameter(torch.from_numpy(np.array(init_alpha, dtype=np.float32)))
+        self.alpha = torch.nn.Parameter(torch.from_numpy(np.array(init_alpha, dtype=np.float32)),
+                                        requires_grad=self._config["trainable"])
 
     def forward(self, x, y):
         """Embeddings should be (batch, time, dim) or (batch, dim)."""
