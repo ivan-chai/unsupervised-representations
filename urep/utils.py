@@ -2,6 +2,7 @@
 import os
 import sys
 
+import numpy as np
 import torch
 
 
@@ -12,6 +13,17 @@ def to_tuple(obj):
     if isinstance(obj, list):
         return tuple(obj)
     return (obj, )
+
+
+def to_tensor(obj):
+    if isinstance(obj, torch.Tensor):
+        return obj
+    elif isinstance(obj, np.ndarray):
+        if obj.dtype == np.float64:
+            obj = obj.astype(np.float32)
+        return torch.from_numpy(obj)
+    else:
+        raise ValueError("Can not convert object of type {} to torch Tensor".format(type(obj)))
 
 
 def try_cuda(obj):

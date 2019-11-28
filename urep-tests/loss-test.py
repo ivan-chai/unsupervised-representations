@@ -6,6 +6,7 @@ import torch
 from urep import test
 from urep.estimators.gcpc import get_maximal_mutual_information
 from urep.loss import *
+from urep.utils import to_tensor
 
 
 class TestInfoNCELoss(test.TestCase):
@@ -54,6 +55,35 @@ class TestInfoNCELoss(test.TestCase):
         self.assertEqualArrays(loss_value.shape, [batch_size])
         mutual_information = - np.mean(loss_value)
         self.assertAlmostEqual(mutual_information, mutual_information_gt, places=1)
+
+
+class TestInfoNCEAggregatedLoss(test.TestCase):
+    def test_compare_general_case(self):
+        """Compare aggregated loss to general case InfoNCELoss."""
+        self._cmp({"comparator": "gauss"})
+        self._cmp({"comparator": "gauss", "symmetric": True})
+        self._cmp({"comparator": "gauss", "transpose": True})
+
+    def _cmp(self, config):
+        batch_size = 8
+        dim = 4
+        batch1 = np.random.random((batch_size, dim))
+        batch2 = np.random.random((batch_size, dim))
+        agg_loss = InfoNCEArregatedLoss(dim, dim, config=config)
+        agg_loss_value = agg_loss(to_tensor(batch1), to_tensor(batch2)).detach().numpy()
+
+        # In timed loss first timestamp of the batch2 is compared with second timestamp of batch1.
+        batch1_time = np.empty((batch_size, 2, dim))
+        batch2_time = np.empty((batch_size, 2, dim))
+        batch1_time[:, 1, :] = batch1
+        batch2_time[:, 0, :] = batch2
+        time_config = config.copy()
+        time_config["min_context_size"] = 1
+        time_config["future_steps"] = 1
+        loss = InfoNCELoss(dim, dim, config=time_config)
+        loss.comparator0 = agg_loss.comparator
+        loss_value = loss(to_tensor(batch1_time), to_tensor(batch2_time)).detach().numpy()
+        self.assertAlmostEqualArrays(agg_loss_value, loss_value)
 
 
 if __name__ == "__main__":

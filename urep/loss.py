@@ -82,7 +82,7 @@ class InfoNCELoss(NamedLoss):
         return losses
 
 
-class InfoNCELossArregated(NamedLoss):
+class InfoNCEArregatedLoss(NamedLoss):
     """Simple version of InfoNCE without time dimension."""
     @staticmethod
     def get_default_config():
@@ -129,5 +129,5 @@ class InfoNCELossArregated(NamedLoss):
 
 LOSSES = {
     "info_nce": InfoNCELoss,
-    "info_nce_aggregated": InfoNCELossArregated
+    "info_nce_aggregated": InfoNCEArregatedLoss
 }
