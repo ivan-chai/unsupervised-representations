@@ -5,10 +5,9 @@ import torch
 
 from ..config import prepare_config
 from ..utils import SuppressOutput
-from .base import ModelBase
 
 
-class GRUAggregator(ModelBase):
+class GRUAggregator(torch.nn.Module):
     """Simple LSTM aggregator similar to that from Contrastive Predictive
     Coding (CPC).
     """

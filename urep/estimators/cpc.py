@@ -18,24 +18,25 @@ class CPCModel(torch.nn.Module):
             ("aggregator_params", None)
         ])
 
-    def __init__(self, config=None):
+    def __init__(self, in_channels, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self.encoder = MODELS[self._config["model"]](self._config["model_params"])
-        self.aggregator = AGGREGATORS[self._config["aggregator"]](self.encoder.output_dims, self._config["aggregator_params"])
+        self.encoder = MODELS[self._config["model"]](in_channels, self._config["model_params"])
+        self.aggregator = AGGREGATORS[self._config["aggregator"]](self.encoder.out_channels, self._config["aggregator_params"])
 
     @property
     def embedding_size(self):
-        return self.encoder.output_dims
+        return self.encoder.out_channels
 
     @property
     def context_size(self):
-        return self.aggregator.output_dims
+        return self.aggregator.out_channels
 
-    def forward(self, waveform):
-        if len(waveform.shape) != 2:
-            raise ValueError("Expected tensor of shape (batch, time)")
-        embeddings = self.encoder(waveform)
+    def forward(self, batch):
+        if len(batch.shape) != 3:
+            raise ValueError("Expected tensor of shape (batch, time, dim), got: {}".format(
+                batch.shape))
+        embeddings = self.encoder(batch)
         contexts = self.aggregator(embeddings)
         return embeddings, contexts
 
@@ -49,10 +50,10 @@ class CPCEstimator(torch.nn.Module):
             ("loss_params", None)
         ])
 
-    def __init__(self, config=None):
+    def __init__(self, in_channels, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self.model = CPCModel(self._config["model_params"])
+        self.model = CPCModel(in_channels, self._config["model_params"])
         self.loss = LOSSES["info_nce"](self.model.embedding_size, self.model.context_size,
                                        config=self._config["loss_params"])
 

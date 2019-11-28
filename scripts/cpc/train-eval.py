@@ -30,7 +30,7 @@ def parse_arguments():
 def main(args):
     if len(args.train_dataset) == 0 and len(args.eval_dataset) == 0:
         raise RuntimeError("At least one of training and evaluation datasets should be specified")
-    model = DataParallel(Estimator(args.model_config))
+    model = DataParallel(Estimator(1, args.model_config))
 
     eval_config = read_json(args.eval_config) if args.eval_config else {}
     if args.num_eval_steps is not None:

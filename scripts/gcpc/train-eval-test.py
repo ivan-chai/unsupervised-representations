@@ -4,7 +4,7 @@ import argparse
 import logging
 
 from urep.estimators import GCPCEstimator as Estimator
-from urep.data import LibrispeechDataset as Dataset
+from urep.data import MultivariateNormalDataset as Dataset
 from urep.evaluate import Evaluator
 from urep.io import read_json
 from urep.parallel import DataParallel
@@ -15,8 +15,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("--model-dir", help="Path to output model dir", required=True)
     parser.add_argument("--model-config", help="Path to model config")
-    parser.add_argument("--train-dataset", help="Path to training dataset", nargs="+", default=[])
-    parser.add_argument("--eval-dataset", help="Path to evaluation dataset", nargs="+", default=[])
+    parser.add_argument("--data-config", help="Path to data config")
     parser.add_argument("--train-config", help="Path to training config")
     parser.add_argument("--eval-config", help="Path to evaluation config")
     parser.add_argument("--num-train-steps", help="Number of batches to process during training", type=int)
@@ -28,9 +27,10 @@ def parse_arguments():
 
 
 def main(args):
-    if len(args.train_dataset) == 0 and len(args.eval_dataset) == 0:
-        raise RuntimeError("At least one of training and evaluation datasets should be specified")
-    model = DataParallel(Estimator(1, args.model_config))
+    train_dataset = Dataset(args.data_config)
+    eval_dataset = Dataset(args.data_config)
+
+    model = DataParallel(Estimator(train_dataset.out_channels, args.model_config))
 
     eval_config = read_json(args.eval_config) if args.eval_config else {}
     if args.num_eval_steps is not None:
@@ -48,17 +48,9 @@ def main(args):
         train_config["logging_steps"] = args.log_steps
     trainer = Trainer(train_config)
 
-    train_dataset = [Dataset(root) for root in args.train_dataset]
-    eval_dataset = [Dataset(root) for root in args.eval_dataset]
-    if len(eval_dataset):
-        evaluate_fn = lambda: evaluator.evaluation_hook(model, args.model_dir, eval_dataset)
-    else:
-        evaluate_fn = None
-    if len(train_dataset) > 0:
-        trainer.train(model, train_dataset, args.model_dir,
-                      eval_hook=evaluate_fn)
-    elif evaluate_fn is not None:
-        evaluate_fn()
+    evaluate_fn = lambda: evaluator.evaluation_hook(model, args.model_dir, eval_dataset)
+    trainer.train(model, train_dataset, args.model_dir,
+                  eval_hook=evaluate_fn)
 
 
 if __name__ == "__main__":

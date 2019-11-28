@@ -83,28 +83,48 @@ class InfoNCELoss(NamedLoss):
 
 
 class InfoNCELossArregated(NamedLoss):
+    """Simple version of InfoNCE without time dimension."""
     @staticmethod
     def get_default_config():
         return OrderedDict([
+            ("transpose", False),
+            ("symmetric", False),
+            ("comparator", "bilinear"),
+            ("comparator_params", None)
         ])
 
-    def forward(self, log_density_ratios):
-        """Simple version without time."""
-        input_shape = log_density_ratios.shape
-        if (len(input_shape) != 2) or (input_shape[0] != input_shape[1]):
-            raise ValueError("Expected square matrix with shape (batch, batch), got {}".format(list(input_shape)))
-        log_density_ratios_positive = torch.diag(log_density_ratios)
+    def __init__(self, embeddings_size, contexts_size, config=None):
+        super().__init__()
+        self._config = prepare_config(config, self.get_default_config())
+        comparator_class = COMPARATORS[self._config["comparator"]]
+        self.comparator = comparator_class(embeddings_size, contexts_size,
+                                           config=self._config["comparator_params"])
+
+    def forward(self, embeddings, contexts):
+        if len(embeddings.shape) != 2:
+            raise ValueError("Embeddings shape should be (batch, dim), got: {}".format(
+                embeddings.shape))
+        if len(contexts.shape) != 2:
+            raise ValueError("Contexts shape should be (batch, dim), got: {}".format(
+                contexts.shape))
+        transpose = self._config["transpose"]
+        loss = self._info_nce(embeddings, contexts, transpose=transpose)
+        if self._config["symmetric"]:
+            loss = 0.5 * (loss + self._info_nce(embeddings, contexts, transpose=not transpose))
+        return loss
+
+    def _info_nce(self, embeddings, contexts, transpose=False):
+        log_density_ratios_matrix = self.comparator(embeddings, contexts)  # (batch, batch).
+        if transpose:
+            log_density_ratios_matrix = log_density_ratios_matrix.permute(1, 0)
+        log_density_ratios_positive = torch.diag(log_density_ratios_matrix)
         log_density_ratio_sums = torch.logsumexp(log_density_ratios_matrix, axis=-1)  # (batch).
         # We implement mean instead of sum for better loss values. It is not part of original approach.
-        batch_size = input_shape[0]
-        log_density_ratio_sums -= np.log(batch_size)
+        batch_size = embeddings.shape[0]
+        log_density_ratio_sums = log_density_ratio_sums - np.log(batch_size)
         log_probabilities = log_density_ratios_positive - log_density_ratio_sums  # (batch).
-        total_loss = -log_probabilities.mean()
-        return total_loss
-
-    @property
-    def input_names(self):
-        return "log_density_ratios"
+        losses = -log_probabilities
+        return losses
 
 
 LOSSES = {

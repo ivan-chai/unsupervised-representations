@@ -17,46 +17,37 @@ class GCPCModel(torch.nn.Module):
             ("model_params", None)
         ])
 
-    def __init__(self, config=None):
+    def __init__(self, in_channels, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self.encoder = MODELS[self._config["model"]](self._config["model_params"])
+        self.encoder = MODELS[self._config["model"]](in_channels, self._config["model_params"])
 
     @property
     def embedding_size(self):
-        return self.encoder.output_dims
+        return self.encoder.out_channels
 
-    def forward(self, waveform):
-        if len(waveform.shape) != 2:
-            raise ValueError("Expected tensor of shape (batch, time)")
-        embeddings = self.encoder(waveform)
+    def forward(self, batch):
+        embeddings = self.encoder(batch)
         return embeddings
 
 
 class GCPCEstimator(torch.nn.Module):
     """Class encapsulates model, loss and metrics."""
     @staticmethod
-    def get_default_loss_config():
-        return OrderedDict([
-            ("comparator", "gauss"),
-            ("single_comparator", True),
-            ("symmetric", True)
-        ])
-
-    @staticmethod
     def get_default_config():
         return OrderedDict([
             ("model_params", None),
+            ("loss", "info_nce"),
             ("loss_params", None)
         ])
 
-    def __init__(self, config=None):
+    def __init__(self, in_channels, config=None):
         super().__init__()
         self._config = prepare_config(config, self.get_default_config())
-        self.model = GCPCModel(self._config["model_params"])
-        loss_config = prepare_config(self._config["loss_params"], self.get_default_loss_config())
-        self.loss = LOSSES["info_nce"](self.model.embedding_size, self.model.embedding_size,
-                                       config=loss_config)
+        self.model = GCPCModel(in_channels, self._config["model_params"])
+        loss_class = LOSSES[self._config["loss"]]
+        self.loss = loss_class(self.model.embedding_size, self.model.embedding_size,
+                               config=self._config["loss_params"])
 
     def forward(self, waveforms, labels=None, compute_loss=False):
         embeddings = self.model(waveforms)
